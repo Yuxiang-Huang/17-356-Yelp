@@ -1,3 +1,7 @@
+import { and, desc, eq, ilike, or, sql } from "drizzle-orm";
+import { db } from "../db/client.ts";
+import { businesses, reviews } from "../db/schema.ts";
+
 export interface Business {
   id: string;
   name: string;
@@ -5,7 +9,7 @@ export interface Business {
   city: string;
   state: string;
   address: string;
-  description?: string;
+  description?: string | null;
   averageRating: number;
   reviewCount: number;
 }
@@ -14,7 +18,7 @@ export interface Review {
   id: string;
   businessId: string;
   userId: string;
-  userName?: string;
+  userName?: string | null;
   rating: number;
   comment: string;
   createdAt: string;
@@ -30,69 +34,10 @@ export interface PaginatedResult<T> {
 export interface CreateReviewInput {
   businessId: string;
   userId: string;
-  userName?: string;
+  userName?: string | null;
   rating: number;
   comment: string;
 }
-
-// Simple in-memory data store for demo purposes.
-// In a production Yelp clone, this would be backed by a database.
-const businesses: Business[] = [
-  {
-    id: "1",
-    name: "Scotty Coffee Roasters",
-    category: "Cafe",
-    city: "Pittsburgh",
-    state: "PA",
-    address: "123 Campus Ave",
-    description: "Cozy campus coffee shop with great pour-overs and study space.",
-    averageRating: 4.7,
-    reviewCount: 3,
-  },
-  {
-    id: "2",
-    name: "Panther Pizza",
-    category: "Restaurant",
-    city: "Pittsburgh",
-    state: "PA",
-    address: "456 Panther Way",
-    description: "Late-night pizza spot popular with students.",
-    averageRating: 4.2,
-    reviewCount: 5,
-  },
-  {
-    id: "3",
-    name: "Yinz Bites Food Truck",
-    category: "Food Truck",
-    city: "Pittsburgh",
-    state: "PA",
-    address: "Various locations",
-    description: "Rotating menu of Pittsburgh-inspired comfort food.",
-    averageRating: 4.5,
-    reviewCount: 2,
-  },
-];
-
-const reviews: Review[] = [
-  {
-    id: "r1",
-    businessId: "1",
-    userId: "demo-user",
-    userName: "Demo User",
-    rating: 5,
-    comment: "Amazing coffee and friendly staff!",
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: "r2",
-    businessId: "2",
-    userId: "demo-user",
-    userName: "Demo User",
-    rating: 4,
-    comment: "Great slices, perfect after hackathons.",
-    createdAt: new Date().toISOString(),
-  },
-];
 
 function generateId(prefix: string) {
   return `${prefix}_${Date.now().toString(36)}_${Math.random()
@@ -100,97 +45,169 @@ function generateId(prefix: string) {
     .slice(2, 8)}`;
 }
 
-function recomputeRatings(businessId: string) {
-  const biz = businesses.find((b) => b.id === businessId);
-  if (!biz) return;
+async function recomputeRatings(businessId: string) {
+  const [agg] = await db
+    .select({
+      average: sql<number>`avg(${reviews.rating})`,
+      count: sql<number>`count(*)`,
+    })
+    .from(reviews)
+    .where(eq(reviews.businessId, businessId));
 
-  const bizReviews = reviews.filter((r) => r.businessId === businessId);
-  if (bizReviews.length === 0) {
-    biz.averageRating = 0;
-    biz.reviewCount = 0;
-    return;
-  }
+  const averageRating =
+    agg && typeof agg.average === "number" ? Number(agg.average.toFixed(2)) : 0;
+  const reviewCount =
+    agg && typeof agg.count === "number" ? Number(agg.count) : 0;
 
-  const total = bizReviews.reduce((sum, r) => sum + r.rating, 0);
-  biz.averageRating = Number((total / bizReviews.length).toFixed(2));
-  biz.reviewCount = bizReviews.length;
+  await db
+    .update(businesses)
+    .set({ averageRating, reviewCount })
+    .where(eq(businesses.id, businessId));
 }
 
 export const businessService = {
-  listBusinesses(options: {
+  async listBusinesses(options: {
     search?: string;
     category?: string;
     city?: string;
     page?: number;
     pageSize?: number;
-  }): PaginatedResult<Business> {
+  }): Promise<PaginatedResult<Business>> {
     const { search, category, city, page = 1, pageSize = 10 } = options;
 
-    let filtered = [...businesses];
+    const conditions = [];
 
     if (search) {
-      const q = search.toLowerCase();
-      filtered = filtered.filter(
-        (b) =>
-          b.name.toLowerCase().includes(q) ||
-          b.category.toLowerCase().includes(q) ||
-          b.city.toLowerCase().includes(q) ||
-          (b.description?.toLowerCase().includes(q) ?? false),
+      const pattern = `%${search}%`;
+      conditions.push(
+        or(
+          ilike(businesses.name, pattern),
+          ilike(businesses.category, pattern),
+          ilike(businesses.city, pattern),
+          ilike(businesses.description, pattern),
+        ),
       );
     }
 
     if (category) {
-      const c = category.toLowerCase();
-      filtered = filtered.filter((b) => b.category.toLowerCase() === c);
+      conditions.push(ilike(businesses.category, category));
     }
 
     if (city) {
-      const c = city.toLowerCase();
-      filtered = filtered.filter((b) => b.city.toLowerCase() === c);
+      conditions.push(ilike(businesses.city, city));
     }
 
-    const total = filtered.length;
-    const start = (page - 1) * pageSize;
-    const end = start + pageSize;
+    const where =
+      conditions.length > 0 ? and(...conditions) : undefined;
+
+    const items = await db
+      .select()
+      .from(businesses)
+      .where(where)
+      .limit(pageSize)
+      .offset((page - 1) * pageSize);
+
+    const [{ value: total }] = await db
+      .select({
+        value: sql<number>`count(*)`,
+      })
+      .from(businesses)
+      .where(where);
 
     return {
-      items: filtered.slice(start, end),
+      items: items.map((b) => ({
+        id: b.id,
+        name: b.name,
+        category: b.category,
+        city: b.city,
+        state: b.state,
+        address: b.address,
+        description: b.description,
+        averageRating: Number(b.averageRating),
+        reviewCount: b.reviewCount,
+      })),
       total,
       page,
       pageSize,
     };
   },
 
-  getBusiness(id: string): Business | undefined {
-    return businesses.find((b) => b.id === id);
+  async getBusiness(id: string): Promise<Business | undefined> {
+    const [b] = await db
+      .select()
+      .from(businesses)
+      .where(eq(businesses.id, id))
+      .limit(1);
+
+    if (!b) return undefined;
+
+    return {
+      id: b.id,
+      name: b.name,
+      category: b.category,
+      city: b.city,
+      state: b.state,
+      address: b.address,
+      description: b.description,
+      averageRating: Number(b.averageRating),
+      reviewCount: b.reviewCount,
+    };
   },
 
-  listReviews(businessId: string): Review[] {
-    return reviews
-      .filter((r) => r.businessId === businessId)
-      .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
+  async listReviews(businessId: string): Promise<Review[]> {
+    const rows = await db
+      .select()
+      .from(reviews)
+      .where(eq(reviews.businessId, businessId))
+      .orderBy(desc(reviews.createdAt));
+
+    return rows.map((r) => ({
+      id: r.id,
+      businessId: r.businessId,
+      userId: r.userId,
+      userName: r.userName,
+      rating: r.rating,
+      comment: r.comment,
+      createdAt: r.createdAt.toISOString(),
+    }));
   },
 
-  createReview(input: CreateReviewInput): Review {
-    const biz = businesses.find((b) => b.id === input.businessId);
+  async createReview(input: CreateReviewInput): Promise<Review> {
+    const [biz] = await db
+      .select()
+      .from(businesses)
+      .where(eq(businesses.id, input.businessId))
+      .limit(1);
+
     if (!biz) {
       throw new Error("Business not found");
     }
 
-    const review: Review = {
-      id: generateId("rev"),
-      businessId: input.businessId,
-      userId: input.userId,
-      userName: input.userName,
-      rating: input.rating,
-      comment: input.comment,
-      createdAt: new Date().toISOString(),
+    const reviewId = generateId("rev");
+
+    const [inserted] = await db
+      .insert(reviews)
+      .values({
+        id: reviewId,
+        businessId: input.businessId,
+        userId: input.userId,
+        userName: input.userName ?? null,
+        rating: input.rating,
+        comment: input.comment,
+      })
+      .returning();
+
+    await recomputeRatings(input.businessId);
+
+    return {
+      id: inserted.id,
+      businessId: inserted.businessId,
+      userId: inserted.userId,
+      userName: inserted.userName,
+      rating: inserted.rating,
+      comment: inserted.comment,
+      createdAt: inserted.createdAt.toISOString(),
     };
-
-    reviews.push(review);
-    recomputeRatings(input.businessId);
-
-    return review;
   },
 };
 
