@@ -104,10 +104,30 @@ export const businessService = {
     const where =
       conditions.length > 0 ? and(...conditions) : undefined;
 
-    const items = await db
-      .select()
+    const rows = await db
+      .select({
+        id: businesses.id,
+        name: businesses.name,
+        category: businesses.category,
+        city: businesses.city,
+        state: businesses.state,
+        address: businesses.address,
+        description: businesses.description,
+        averageRating: sql<number>`coalesce(avg(${reviews.rating}), 0)`,
+        reviewCount: sql<number>`count(${reviews.id})`,
+      })
       .from(businesses)
+      .leftJoin(reviews, eq(businesses.id, reviews.businessId))
       .where(where)
+      .groupBy(
+        businesses.id,
+        businesses.name,
+        businesses.category,
+        businesses.city,
+        businesses.state,
+        businesses.address,
+        businesses.description,
+      )
       .limit(pageSize)
       .offset((page - 1) * pageSize);
 
@@ -119,7 +139,7 @@ export const businessService = {
       .where(where);
 
     return {
-      items: items.map((b) => ({
+      items: rows.map((b) => ({
         id: b.id,
         name: b.name,
         category: b.category,
@@ -127,8 +147,8 @@ export const businessService = {
         state: b.state,
         address: b.address,
         description: b.description,
-        averageRating: Number(b.averageRating),
-        reviewCount: b.reviewCount,
+        averageRating: Number(Number(b.averageRating ?? 0).toFixed(2)),
+        reviewCount: Number(b.reviewCount ?? 0),
       })),
       total: Number(totalRaw),
       page,
@@ -138,9 +158,29 @@ export const businessService = {
 
   async getBusiness(id: string): Promise<Business | undefined> {
     const [b] = await db
-      .select()
+      .select({
+        id: businesses.id,
+        name: businesses.name,
+        category: businesses.category,
+        city: businesses.city,
+        state: businesses.state,
+        address: businesses.address,
+        description: businesses.description,
+        averageRating: sql<number>`coalesce(avg(${reviews.rating}), 0)`,
+        reviewCount: sql<number>`count(${reviews.id})`,
+      })
       .from(businesses)
+      .leftJoin(reviews, eq(businesses.id, reviews.businessId))
       .where(eq(businesses.id, id))
+      .groupBy(
+        businesses.id,
+        businesses.name,
+        businesses.category,
+        businesses.city,
+        businesses.state,
+        businesses.address,
+        businesses.description,
+      )
       .limit(1);
 
     if (!b) return undefined;
@@ -153,8 +193,8 @@ export const businessService = {
       state: b.state,
       address: b.address,
       description: b.description,
-      averageRating: Number(b.averageRating),
-      reviewCount: b.reviewCount,
+      averageRating: Number(Number(b.averageRating ?? 0).toFixed(2)),
+      reviewCount: Number(b.reviewCount ?? 0),
     };
   },
 
