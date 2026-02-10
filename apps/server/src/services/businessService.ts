@@ -54,14 +54,18 @@ async function recomputeRatings(businessId: string) {
     .from(reviews)
     .where(eq(reviews.businessId, businessId));
 
-  const averageRating =
-    agg && typeof agg.average === "number" ? Number(agg.average.toFixed(2)) : 0;
-  const reviewCount =
-    agg && typeof agg.count === "number" ? Number(agg.count) : 0;
+  // Drizzle + Postgres often return numeric aggregates as strings,
+  // so we coerce to numbers explicitly.
+  const hasRows = agg && agg.count !== null && agg.count !== undefined;
+  const reviewCount = hasRows ? Number(agg.count) : 0;
+
+  const averageRating = hasRows
+    ? Number(Number(agg.average ?? 0).toFixed(2))
+    : 0;
 
   await db
     .update(businesses)
-    .set({ averageRating, reviewCount })
+    .set({ averageRating: averageRating.toString(), reviewCount })
     .where(eq(businesses.id, businessId));
 }
 
@@ -107,7 +111,7 @@ export const businessService = {
       .limit(pageSize)
       .offset((page - 1) * pageSize);
 
-    const [{ value: total }] = await db
+    const [{ value: totalRaw } = { value: 0 }] = await db
       .select({
         value: sql<number>`count(*)`,
       })
@@ -126,7 +130,7 @@ export const businessService = {
         averageRating: Number(b.averageRating),
         reviewCount: b.reviewCount,
       })),
-      total,
+      total: Number(totalRaw),
       page,
       pageSize,
     };
@@ -196,6 +200,10 @@ export const businessService = {
         comment: input.comment,
       })
       .returning();
+
+    if (!inserted) {
+      throw new Error("Failed to create review");
+    }
 
     await recomputeRatings(input.businessId);
 
