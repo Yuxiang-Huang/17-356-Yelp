@@ -1,25 +1,32 @@
+import type { QueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
-import { useSession } from "@/lib/auth/client.ts";
-import { $api } from "@/lib/api/client.ts";
 import { Button } from "@/components/ui/button.tsx";
 import { Card } from "@/components/ui/card.tsx";
+import { $api } from "@/lib/api/client.ts";
+import { useSession } from "@/lib/auth/client.ts";
 
 export const Route = createFileRoute("/businesses/$id")({
   component: BusinessPage,
+  loader: ({ context, params }) => {
+    context.queryClient.ensureQueryData(
+      $api.queryOptions("get", "/businesses/{id}", {
+        params: { path: { id: params.id } },
+      }),
+    );
+  },
+  pendingComponent: () => <div>Loading...</div>,
+  errorComponent: ({ error }) => <div>Error: {error.message}</div>,
 });
 
 function BusinessPage() {
   const { id } = Route.useParams();
   const { data: auth } = useSession();
 
-  const {
-    data: business,
-    isLoading: isLoadingBusiness,
-    isError: isErrorBusiness,
-  } = $api.useQuery("get", "/businesses/{id}", {
-    params: { path: { id } },
-  });
+  const { data: business } = useQuery(
+    $api.queryOptions("get", "/businesses/{id}", { params: { path: { id } } }),
+  );
 
   const {
     data: reviews,
@@ -35,14 +42,6 @@ function BusinessPage() {
   const [rating, setRating] = useState(5);
   const [comment, setComment] = useState("");
   const [submitError, setSubmitError] = useState<string | null>(null);
-
-  if (isLoadingBusiness) {
-    return <div className="p-4">Loading business...</div>;
-  }
-
-  if (isErrorBusiness || !business) {
-    return <div className="p-4 text-red-600">Business not found.</div>;
-  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -164,7 +163,10 @@ function BusinessPage() {
           {submitError && (
             <div className="text-sm text-red-600">{submitError}</div>
           )}
-          <Button type="submit" disabled={!auth?.user || createReview.isPending}>
+          <Button
+            type="submit"
+            disabled={!auth?.user || createReview.isPending}
+          >
             {createReview.isPending ? "Submitting..." : "Submit review"}
           </Button>
         </form>
@@ -172,4 +174,3 @@ function BusinessPage() {
     </div>
   );
 }
-
