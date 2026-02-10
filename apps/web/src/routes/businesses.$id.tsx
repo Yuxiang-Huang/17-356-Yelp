@@ -1,5 +1,4 @@
-import type { QueryClient } from "@tanstack/react-query";
-import { useQuery } from "@tanstack/react-query";
+import { useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { Button } from "@/components/ui/button.tsx";
@@ -24,9 +23,9 @@ function BusinessPage() {
   const { id } = Route.useParams();
   const { data: auth } = useSession();
 
-  const { data: business } = useQuery(
-    $api.queryOptions("get", "/businesses/{id}", { params: { path: { id } } }),
-  );
+  const { data: business } = $api.useSuspenseQuery("get", "/businesses/{id}", {
+    params: { path: { id } },
+  });
 
   const {
     data: reviews,
