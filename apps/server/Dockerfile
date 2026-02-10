@@ -16,7 +16,7 @@ RUN bun install --frozen-lockfile
 RUN bun run generate
 
 # Build the project
-RUN bun run build --filter=@scottystack/server...
+RUN bun run build --filter=@yelp/server...
 
 # Final runtime image
 FROM base AS runner

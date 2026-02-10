@@ -1,11 +1,11 @@
-import type { paths } from "@scottystack/server/build/swagger";
+import type { paths } from "@yelp/server/build/swagger";
 import createFetchClient from "openapi-fetch";
 import createClient from "openapi-react-query";
 import { env } from "@/env.ts";
 
 const fetchClient = createFetchClient<paths>({
-  baseUrl: `${env.VITE_SERVER_URL}`,
-  credentials: "include",
+	baseUrl: `${env.VITE_SERVER_URL}`,
+	credentials: "include",
 });
 
 const $api = createClient(fetchClient);

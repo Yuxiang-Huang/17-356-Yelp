@@ -18,19 +18,19 @@ bun install
 # Generate dependencies
 bun run generate
 
-# Install shfmt for shell script formatting
-# https://formulae.brew.sh/formula/shfmt
-brew install shfmt
+# # Install shfmt for shell script formatting
+# # https://formulae.brew.sh/formula/shfmt
+# brew install shfmt
 
-# Install editorconfig-checker for linting with EditorConfig
-# https://github.com/editorconfig-checker/editorconfig-checker?tab=readme-ov-file#6-using-homebrew
-brew install editorconfig-checker
+# # Install editorconfig-checker for linting with EditorConfig
+# # https://github.com/editorconfig-checker/editorconfig-checker?tab=readme-ov-file#6-using-homebrew
+# brew install editorconfig-checker
 
-# Install Vault for secret management
-# https://developer.hashicorp.com/vault/install
-brew tap hashicorp/tap
-brew install hashicorp/tap/vault
+# # Install Vault for secret management
+# # https://developer.hashicorp.com/vault/install
+# brew tap hashicorp/tap
+# brew install hashicorp/tap/vault
 
-# Set up environment variables
-bun run secrets:setup
-bun run secrets:pull all all
+# # Set up environment variables
+# bun run secrets:setup
+# bun run secrets:pull all all
