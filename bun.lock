@@ -61,7 +61,7 @@
         "@tanstack/router-plugin": "^1.132.0",
         "@yelp/server": "workspace:*",
         "better-auth": "^1.4.18",
-        "openapi-fetch": "^0.15.0",
+        "openapi-fetch": "^0.16.0",
         "openapi-react-query": "^0.5.1",
         "react": "^19.2.0",
         "react-dom": "^19.2.0",
@@ -1211,7 +1211,7 @@
 
     "onetime": ["onetime@7.0.0", "", { "dependencies": { "mimic-function": "^5.0.0" } }, "sha512-VXJjc87FScF88uafS3JllDgvAm+c/Slfz06lorj2uAY34rlUu0Nt+v8wreiImcrgAjjIHp1rXpTDlLOGw29WwQ=="],
 
-    "openapi-fetch": ["openapi-fetch@0.15.0", "", { "dependencies": { "openapi-typescript-helpers": "^0.0.15" } }, "sha512-OjQUdi61WO4HYhr9+byCPMj0+bgste/LtSBEcV6FzDdONTs7x0fWn8/ndoYwzqCsKWIxEZwo4FN/TG1c1rI8IQ=="],
+    "openapi-fetch": ["openapi-fetch@0.16.0", "", { "dependencies": { "openapi-typescript-helpers": "^0.0.15" } }, "sha512-EVLlvcUOugBYMXhuITAm2Ihv9EmQ7b9gJYn7hg2wvcf/GxbanhQ9olDz9I3DcS0Jr4Jv/53I2oVuIYQsFHa9mA=="],
 
     "openapi-react-query": ["openapi-react-query@0.5.1", "", { "dependencies": { "openapi-typescript-helpers": "^0.0.15" }, "peerDependencies": { "@tanstack/react-query": "^5.80.0", "openapi-fetch": "^0.15.0" } }, "sha512-BzUDxICV9v8584pBiGM9jgCqSBBp/mP91SJ68Pu7PqeppqfWxazi3vVaMup5Acjxv3cN9GbV6xuVHfbGsJfexw=="],
 
